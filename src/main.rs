@@ -1,36 +1,36 @@
 extern crate termion;
 
 use std::vec::Vec;
+use std::{thread, time};
 
-use termion::clear;
-use termion::cursor;
+use termion::{clear, cursor};
 
 struct Cell {
-    possible: Vec<i32>,
+    possibles: Vec<i32>,
 }
 
 impl Cell {
     fn new() -> Cell {
         Cell {
-            possible: (1..10).collect(),
+            possibles: (1..10).collect(),
         }
     }
 
     fn set_hint(self: &mut Cell, hint: i32) {
-        assert!(self.possible == (1..10).collect::<Vec<i32>>());
-        self.possible.clear();
-        self.possible.push(hint);
+        assert!(self.possibles == (1..10).collect::<Vec<i32>>());
+        self.possibles.clear();
+        self.possibles.push(hint);
     }
 
-    fn remove_possible(self: &mut Cell, number: i32) {
-        self.possible.retain(|i| *i != number);
+    fn eliminate_possible(self: &mut Cell, digit: i32) {
+        self.possibles.retain(|i| *i != digit);
     }
 
     fn print(self: &Cell, x_offset: i32, y_offset: i32) {
-        for number in self.possible.iter() {
-            let x = (1 + x_offset + (number - 1) % 3) as u16;
-            let y = (1 + y_offset + (number - 1) / 3) as u16;
-            print!("{}{}", cursor::Goto(x, y), number)
+        for digit in self.possibles.iter() {
+            let x = (1 + x_offset + (digit - 1) % 3) as u16;
+            let y = (1 + y_offset + (digit - 1) / 3) as u16;
+            print!("{}{}", cursor::Goto(x, y), digit)
         }
     }
 }
@@ -59,12 +59,12 @@ impl Grid {
         cell.set_hint(hint);
     }
 
-    fn propagate_block<F: FnMut((i32, i32))>(
+    fn eliminate_in_block<F: FnMut((i32, i32))>(
         self: &mut Grid,
         x: i32,
         y: i32,
-        number: i32,
-        mut solved_fn: F,
+        digit: i32,
+        mut mark_solved: F,
     ) {
         let block_start_x = (x / 3) * 3;
         let block_start_y = (y / 3) * 3;
@@ -73,34 +73,46 @@ impl Grid {
                 if x_mod == x && y_mod == y {
                     continue;
                 }
-                self.cell_mut(x_mod, y_mod).remove_possible(number);
-                if self.cell(x_mod, y_mod).possible.len() == 1 {
-                    solved_fn((x_mod, y_mod));
+                self.cell_mut(x_mod, y_mod).eliminate_possible(digit);
+                if self.cell(x_mod, y_mod).possibles.len() == 1 {
+                    mark_solved((x_mod, y_mod));
                 }
             }
         }
     }
 
-    fn propagate_row<F: FnMut((i32, i32))>(self: &mut Grid, x: i32, y: i32, number: i32, mut solved_fn: F) {
+    fn eliminate_in_row<F: FnMut((i32, i32))>(
+        self: &mut Grid,
+        x: i32,
+        y: i32,
+        digit: i32,
+        mut mark_solved: F,
+    ) {
         for x_mod in 0..9 {
             if x_mod == x {
                 continue;
             }
-            self.cell_mut(x_mod, y).remove_possible(number);
-            if self.cell(x_mod, y).possible.len() == 1 {
-                solved_fn((x_mod, y));
+            self.cell_mut(x_mod, y).eliminate_possible(digit);
+            if self.cell(x_mod, y).possibles.len() == 1 {
+                mark_solved((x_mod, y));
             }
         }
     }
 
-    fn propagate_column<F: FnMut((i32, i32))>(self: &mut Grid, x: i32, y: i32, number: i32, mut solved_fn: F) {
+    fn eliminate_in_column<F: FnMut((i32, i32))>(
+        self: &mut Grid,
+        x: i32,
+        y: i32,
+        digit: i32,
+        mut mark_solved: F,
+    ) {
         for y_mod in 0..9 {
             if y_mod == y {
                 continue;
             }
-            self.cell_mut(x, y_mod).remove_possible(number);
-            if self.cell(x, y_mod).possible.len() == 1 {
-                solved_fn((x, y_mod));
+            self.cell_mut(x, y_mod).eliminate_possible(digit);
+            if self.cell(x, y_mod).possibles.len() == 1 {
+                mark_solved((x, y_mod));
             }
         }
     }
@@ -114,50 +126,56 @@ impl Grid {
     }
 }
 
-struct Solver {
+struct SudokuSolver {
     grid: Grid,
-    cell_stack: Vec<(i32, i32)>,
+    solved_cells: Vec<(i32, i32)>,
 }
 
-impl Solver {
-    fn new() -> Solver {
-        Solver {
+impl SudokuSolver {
+    fn new() -> SudokuSolver {
+        SudokuSolver {
             grid: Grid::new(),
-            cell_stack: Vec::new(),
+            solved_cells: Vec::new(),
         }
     }
 
-    fn set_hint(self: &mut Solver, x: i32, y: i32, hint: i32) {
+    fn set_hint(self: &mut SudokuSolver, x: i32, y: i32, hint: i32) {
         self.grid.set_hint(x, y, hint);
-        assert!(!self.cell_stack.contains(&(x, y)));
-        self.cell_stack.push((x, y));
+        assert!(!self.solved_cells.contains(&(x, y)));
+        self.solved_cells.push((x, y));
     }
 
-    fn solve(self: &mut Solver) {
-        let mut finished = Vec::new();
-        while let Some((x, y)) = self.cell_stack.pop() {
-            assert!(self.grid.cell(x, y).possible.len() == 1);
-            assert!(!finished.contains(&(x, y)));
-            println!("len {}", self.cell_stack.len());
-            println!("x {} y {}", x, y);
-            finished.push((x, y));
-            let number = self.grid.cell(x, y).possible[0];
-            let cell_stack_ref = &mut self.cell_stack;
+    fn solve(self: &mut SudokuSolver) {
+        let mut eliminated_cells = Vec::new();
+        while let Some((x, y)) = self.solved_cells.pop() {
+            assert!(!eliminated_cells.contains(&(x, y)));
+            eliminated_cells.push((x, y));
+
+            let solved_cells_ref = &mut self.solved_cells;
             let mut push_cell = |pos| {
-                if !finished.contains(&pos) && !cell_stack_ref.contains(&pos) {
-                    println!("Pushing ({}, {})", pos.0, pos.1);
-                    cell_stack_ref.push(pos);
+                if !eliminated_cells.contains(&pos) && !solved_cells_ref.contains(&pos) {
+                    solved_cells_ref.push(pos);
                 }
             };
-            self.grid.propagate_block(x, y, number, &mut push_cell);
-            self.grid.propagate_row(x, y, number, &mut push_cell);
-            self.grid.propagate_column(x, y, number, &mut push_cell);
+
+            assert!(self.grid.cell(x, y).possibles.len() == 1);
+            let digit = self.grid.cell(x, y).possibles[0];
+            self.grid.eliminate_in_block(x, y, digit, &mut push_cell);
+            self.grid.eliminate_in_row(x, y, digit, &mut push_cell);
+            self.grid.eliminate_in_column(x, y, digit, &mut push_cell);
+
+            // It's more fun if you can see the puzzle being solved
+            print!("{}", clear::All);
+            self.grid.print();
+            println!();
+            thread::sleep(time::Duration::from_millis(25));
         }
     }
 }
 
 fn main() {
-    let mut solver = Solver::new();
+    let mut solver = SudokuSolver::new();
+
     solver.set_hint(0, 0, 5);
     solver.set_hint(1, 0, 3);
     solver.set_hint(4, 0, 7);
@@ -196,7 +214,9 @@ fn main() {
     solver.set_hint(4, 8, 8);
     solver.set_hint(7, 8, 7);
     solver.set_hint(8, 8, 9);
+
     solver.solve();
+
     print!("{}", clear::All);
     solver.grid.print();
     println!();
