@@ -3,16 +3,20 @@ extern crate termion;
 use std::vec::Vec;
 use std::{thread, time};
 
-use termion::{clear, cursor};
+use termion::{clear, color, cursor};
 
 struct Cell {
     possibles: Vec<i32>,
+    changed: bool,
+    used: bool,
 }
 
 impl Cell {
     fn new() -> Cell {
         Cell {
             possibles: (1..10).collect(),
+            changed: false,
+            used: false,
         }
     }
 
@@ -20,18 +24,39 @@ impl Cell {
         assert!(self.possibles == (1..10).collect::<Vec<i32>>());
         self.possibles.clear();
         self.possibles.push(hint);
+        self.changed = true;
     }
 
     fn eliminate_possible(self: &mut Cell, digit: i32) {
-        self.possibles.retain(|i| *i != digit);
+        let mut changed = false;
+        self.possibles.retain(|i| {
+            if *i != digit {
+                true
+            } else {
+                changed = true;
+                false
+            }
+        });
+        self.changed = changed;
     }
 
-    fn print(self: &Cell, x_offset: i32, y_offset: i32) {
+    fn print(self: &mut Cell, x_offset: i32, y_offset: i32) {
         for digit in self.possibles.iter() {
             let x = (1 + x_offset + (digit - 1) % 3) as u16;
             let y = (1 + y_offset + (digit - 1) / 3) as u16;
+            if self.used {
+                print!("{}", color::Fg(color::Red));
+            } else if self.changed {
+                print!("{}", color::Fg(color::Blue));
+            } else if self.possibles.len() == 1 {
+                print!("{}", color::Fg(color::Green));
+            } else {
+                print!("{}", color::Fg(color::Black));
+            }
             print!("{}{}", cursor::Goto(x, y), digit)
         }
+        self.changed = false;
+        self.used = false;
     }
 }
 
@@ -71,6 +96,7 @@ impl Grid {
         for y_mod in block_start_y..block_start_y + 3 {
             for x_mod in block_start_x..block_start_x + 3 {
                 if x_mod == x && y_mod == y {
+                    self.cell_mut(x_mod, y_mod).used = true;
                     continue;
                 }
                 self.cell_mut(x_mod, y_mod).eliminate_possible(digit);
@@ -90,6 +116,7 @@ impl Grid {
     ) {
         for x_mod in 0..9 {
             if x_mod == x {
+                self.cell_mut(x_mod, y).used = true;
                 continue;
             }
             self.cell_mut(x_mod, y).eliminate_possible(digit);
@@ -108,6 +135,7 @@ impl Grid {
     ) {
         for y_mod in 0..9 {
             if y_mod == y {
+                self.cell_mut(x, y_mod).used = true;
                 continue;
             }
             self.cell_mut(x, y_mod).eliminate_possible(digit);
@@ -117,10 +145,10 @@ impl Grid {
         }
     }
 
-    fn print(self: &Grid) {
+    fn print(self: &mut Grid) {
         for y in 0..9 {
             for x in 0..9 {
-                self.cell(x, y).print(x * 5, y * 5);
+                self.cell_mut(x, y).print(x * 5, y * 5);
             }
         }
     }
@@ -168,7 +196,7 @@ impl SudokuSolver {
             print!("{}", clear::All);
             self.grid.print();
             println!();
-            thread::sleep(time::Duration::from_millis(25));
+            thread::sleep(time::Duration::from_millis(100));
         }
     }
 }
