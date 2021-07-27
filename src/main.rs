@@ -1,22 +1,19 @@
 extern crate termion;
 
+mod observer;
+
 use std::vec::Vec;
-use std::{thread, time};
 
-use termion::{clear, color, cursor};
+use crate::observer::{GridObserver, TermObserver};
 
-struct Cell {
+pub struct Cell {
     possibles: Vec<i32>,
-    changed: bool,
-    used: bool,
 }
 
 impl Cell {
     fn new() -> Cell {
         Cell {
             possibles: (1..10).collect(),
-            changed: false,
-            used: false,
         }
     }
 
@@ -24,156 +21,170 @@ impl Cell {
         assert!(self.possibles == (1..10).collect::<Vec<i32>>());
         self.possibles.clear();
         self.possibles.push(hint);
-        self.changed = true;
     }
 
     fn eliminate_possible(self: &mut Cell, digit: i32) {
-        let mut changed = false;
-        self.possibles.retain(|i| {
-            if *i != digit {
-                true
-            } else {
-                changed = true;
-                false
-            }
-        });
-        self.changed = changed;
-    }
-
-    fn print(self: &mut Cell, x_offset: i32, y_offset: i32) {
-        for digit in self.possibles.iter() {
-            let x = (1 + x_offset + (digit - 1) % 3) as u16;
-            let y = (1 + y_offset + (digit - 1) / 3) as u16;
-            if self.used {
-                print!("{}", color::Fg(color::Red));
-            } else if self.changed {
-                print!("{}", color::Fg(color::Blue));
-            } else if self.possibles.len() == 1 {
-                print!("{}", color::Fg(color::Green));
-            } else {
-                print!("{}", color::Fg(color::Black));
-            }
-            print!("{}{}", cursor::Goto(x, y), digit)
-        }
-        self.changed = false;
-        self.used = false;
+        self.possibles.retain(|i| *i != digit);
     }
 }
 
-struct Grid {
-    cells: Vec<Cell>, // Should have exactly 81 elements
-}
-
-impl Grid {
-    fn new() -> Grid {
-        Grid {
-            cells: (0..81).map(|_| Cell::new()).collect(),
-        }
-    }
-
-    fn cell_mut(self: &mut Grid, x: i32, y: i32) -> &mut Cell {
-        &mut self.cells[(y * 9 + x) as usize]
-    }
-
-    fn cell(self: &Grid, x: i32, y: i32) -> &Cell {
-        &self.cells[(y * 9 + x) as usize]
-    }
-
-    fn set_hint(self: &mut Grid, x: i32, y: i32, hint: i32) {
-        let cell = self.cell_mut(x, y);
-        cell.set_hint(hint);
-    }
-
+trait Grid {
+    fn cell_mut(&mut self, x: i32, y: i32) -> &mut Cell;
+    fn cell(&self, x: i32, y: i32) -> &Cell;
+    fn set_hint(&mut self, x: i32, y: i32, hint: i32);
     fn eliminate_in_block<F: FnMut((i32, i32))>(
-        self: &mut Grid,
+        &mut self,
         x: i32,
         y: i32,
         digit: i32,
-        mut mark_solved: F,
+        mark_solved: &mut F,
+    );
+    fn eliminate_in_row<F: FnMut((i32, i32))>(
+        &mut self,
+        x: i32,
+        y: i32,
+        digit: i32,
+        mark_solved: F,
+    );
+    fn eliminate_in_column<F: FnMut((i32, i32))>(
+        &mut self,
+        x: i32,
+        y: i32,
+        digit: i32,
+        mark_solved: F,
+    );
+}
+
+struct ObserveableGrid<TObserver: GridObserver> {
+    cells: Vec<Cell>, // Should have exactly 81 elements
+    observer: TObserver,
+}
+
+impl<TObserver: GridObserver> ObserveableGrid<TObserver> {
+    fn new(observer: TObserver) -> ObserveableGrid<TObserver> {
+        ObserveableGrid {
+            cells: (0..81).map(|_| Cell::new()).collect(),
+            observer,
+        }
+    }
+}
+
+impl<TObserver: GridObserver> Grid for ObserveableGrid<TObserver> {
+    fn cell_mut(&mut self, x: i32, y: i32) -> &mut Cell {
+        &mut self.cells[(y * 9 + x) as usize]
+    }
+
+    fn cell(&self, x: i32, y: i32) -> &Cell {
+        &self.cells[(y * 9 + x) as usize]
+    }
+
+    fn set_hint(&mut self, x: i32, y: i32, hint: i32) {
+        self.observer.highlight_cell(x, y, self.cell(x, y), true);
+        self.cell_mut(x, y).set_hint(hint);
+        self.observer.clear_cell(x, y, self.cell(x, y));
+    }
+
+    fn eliminate_in_block<F: FnMut((i32, i32))>(
+        &mut self,
+        x: i32,
+        y: i32,
+        digit: i32,
+        mark_solved: &mut F,
     ) {
         let block_start_x = (x / 3) * 3;
         let block_start_y = (y / 3) * 3;
+        self.observer.highlight_block(block_start_x, block_start_y);
+        self.observer.highlight_cell(x, y, self.cell(x, y), true);
         for y_mod in block_start_y..block_start_y + 3 {
             for x_mod in block_start_x..block_start_x + 3 {
                 if x_mod == x && y_mod == y {
-                    self.cell_mut(x_mod, y_mod).used = true;
                     continue;
                 }
+                self.observer
+                    .highlight_cell(x_mod, y_mod, self.cell(x_mod, y_mod), false);
                 self.cell_mut(x_mod, y_mod).eliminate_possible(digit);
+                self.observer
+                    .clear_cell(x_mod, y_mod, self.cell(x_mod, y_mod));
                 if self.cell(x_mod, y_mod).possibles.len() == 1 {
                     mark_solved((x_mod, y_mod));
                 }
             }
         }
+        self.observer.clear_cell(x, y, self.cell(x, y));
+        self.observer.clear_block(block_start_x, block_start_y);
     }
 
     fn eliminate_in_row<F: FnMut((i32, i32))>(
-        self: &mut Grid,
+        &mut self,
         x: i32,
         y: i32,
         digit: i32,
         mut mark_solved: F,
     ) {
+        self.observer.highlight_row(y);
+        self.observer.highlight_cell(x, y, self.cell(x, y), true);
         for x_mod in 0..9 {
             if x_mod == x {
-                self.cell_mut(x_mod, y).used = true;
                 continue;
             }
+            self.observer
+                .highlight_cell(x_mod, y, self.cell(x_mod, y), false);
             self.cell_mut(x_mod, y).eliminate_possible(digit);
+            self.observer.clear_cell(x_mod, y, self.cell(x_mod, y));
             if self.cell(x_mod, y).possibles.len() == 1 {
                 mark_solved((x_mod, y));
             }
         }
+        self.observer.clear_cell(x, y, self.cell(x, y));
+        self.observer.clear_row(y);
     }
 
     fn eliminate_in_column<F: FnMut((i32, i32))>(
-        self: &mut Grid,
+        &mut self,
         x: i32,
         y: i32,
         digit: i32,
         mut mark_solved: F,
     ) {
+        self.observer.highlight_column(x);
+        self.observer.highlight_cell(x, y, self.cell(x, y), true);
         for y_mod in 0..9 {
             if y_mod == y {
-                self.cell_mut(x, y_mod).used = true;
                 continue;
             }
+            self.observer
+                .highlight_cell(x, y_mod, self.cell(x, y_mod), false);
             self.cell_mut(x, y_mod).eliminate_possible(digit);
+            self.observer.clear_cell(x, y_mod, self.cell(x, y_mod));
             if self.cell(x, y_mod).possibles.len() == 1 {
                 mark_solved((x, y_mod));
             }
         }
-    }
-
-    fn print(self: &mut Grid) {
-        for y in 0..9 {
-            for x in 0..9 {
-                self.cell_mut(x, y).print(x * 5, y * 5);
-            }
-        }
+        self.observer.clear_cell(x, y, self.cell(x, y));
+        self.observer.clear_column(x);
     }
 }
 
-struct SudokuSolver {
-    grid: Grid,
+struct SudokuSolver<TGrid: Grid> {
+    grid: TGrid,
     solved_cells: Vec<(i32, i32)>,
 }
 
-impl SudokuSolver {
-    fn new() -> SudokuSolver {
+impl<TGrid: Grid> SudokuSolver<TGrid> {
+    fn new(grid: TGrid) -> SudokuSolver<TGrid> {
         SudokuSolver {
-            grid: Grid::new(),
+            grid: grid,
             solved_cells: Vec::new(),
         }
     }
 
-    fn set_hint(self: &mut SudokuSolver, x: i32, y: i32, hint: i32) {
+    fn set_hint(&mut self, x: i32, y: i32, hint: i32) {
         self.grid.set_hint(x, y, hint);
         assert!(!self.solved_cells.contains(&(x, y)));
         self.solved_cells.push((x, y));
     }
 
-    fn solve(self: &mut SudokuSolver) {
+    fn solve(&mut self) {
         let mut eliminated_cells = Vec::new();
         while let Some((x, y)) = self.solved_cells.pop() {
             assert!(!eliminated_cells.contains(&(x, y)));
@@ -191,18 +202,14 @@ impl SudokuSolver {
             self.grid.eliminate_in_block(x, y, digit, &mut push_cell);
             self.grid.eliminate_in_row(x, y, digit, &mut push_cell);
             self.grid.eliminate_in_column(x, y, digit, &mut push_cell);
-
-            // It's more fun if you can see the puzzle being solved
-            print!("{}", clear::All);
-            self.grid.print();
-            println!();
-            thread::sleep(time::Duration::from_millis(100));
         }
     }
 }
 
 fn main() {
-    let mut solver = SudokuSolver::new();
+    let observer = TermObserver::new();
+    let grid = ObserveableGrid::new(observer);
+    let mut solver = SudokuSolver::new(grid);
 
     solver.set_hint(0, 0, 5);
     solver.set_hint(1, 0, 3);
@@ -244,8 +251,4 @@ fn main() {
     solver.set_hint(8, 8, 9);
 
     solver.solve();
-
-    print!("{}", clear::All);
-    solver.grid.print();
-    println!();
 }
