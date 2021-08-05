@@ -3,6 +3,7 @@ use std::io::prelude::*;
 
 use crate::solver::{Grid, SudokuSolver};
 
+#[allow(dead_code)]  // Useful as hardcoded example
 pub fn read_hardcoded<TGrid: Grid>(solver: &mut SudokuSolver<TGrid>) {
     solver.set_hint(0, 0, 5);
     solver.set_hint(1, 0, 3);
