@@ -312,7 +312,7 @@ fn main() {
         let grid = ObserveableGrid::new(observer);
         let mut solver = SudokuSolver::new(grid);
 
-        match reader::read("testdata/sudoku-easy", &mut solver, i) {
+        match reader::read("testdata/easy", &mut solver, i) {
             Ok(()) => {
                 solver.solve();
             }
