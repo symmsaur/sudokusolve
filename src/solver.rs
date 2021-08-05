@@ -170,7 +170,7 @@ impl<TObserver: GridObserver> Grid for ObserveableGrid<TObserver> {
     fn invalidate(&self) {
         for y in 0..9 {
             for x in 0..9 {
-                self.observer.highlight_cell(x, y, self.cell(x, y), false);
+                self.observer.clear_cell(x, y, self.cell(x, y));
             }
         }
     }
@@ -180,7 +180,7 @@ struct Guess {
     x: i32,
     y: i32,
     digit: i32,
-    previous_possibles: Vec<i32>,
+    remaining_possibles: Vec<i32>,
 }
 
 pub struct SudokuSolver<TGrid: Grid> {
@@ -204,9 +204,10 @@ impl<TGrid: Grid> SudokuSolver<TGrid> {
     }
 
     pub fn solve(&mut self) {
-        let mut old_grids = Vec::new();
-        let mut guesses: Vec<Guess> = Vec::new();
         let mut eliminated_cells = Vec::new();
+
+        let mut guesses: Vec<Guess> = Vec::new();
+        let mut old_grids = Vec::new();
         let mut solved_stack = Vec::new();
         let mut eliminated_stack = Vec::new();
 
@@ -242,7 +243,7 @@ impl<TGrid: Grid> SudokuSolver<TGrid> {
                     let eliminated_old = eliminated_stack.pop().unwrap();
                     let solved_old = solved_stack.pop().unwrap();
                     // This guess was wrong, can we make a new one?
-                    if guess.previous_possibles.len() > 1 {
+                    if guess.remaining_possibles.len() > 0 {
                         self.grid = grid;
                         eliminated_cells = eliminated_old;
                         self.solved_cells = solved_old;
@@ -253,17 +254,16 @@ impl<TGrid: Grid> SudokuSolver<TGrid> {
                         if self.grid.cell(guess.x, guess.y).possibles.len() == 1 {
                             self.solved_cells.push((guess.x, guess.y));
                         }
-                        let digit = guess.previous_possibles[1];
+                        let digit = guess.remaining_possibles[0];
 
-                        let prev_digit = guess.digit;
                         guesses.push(Guess {
                             x: guess.x,
                             y: guess.y,
                             digit,
-                            previous_possibles: guess
-                                .previous_possibles
+                            remaining_possibles: guess
+                                .remaining_possibles
                                 .into_iter()
-                                .filter(|x| *x != prev_digit)
+                                .filter(|x| *x != digit)
                                 .collect(),
                         });
                         old_grids.push(self.grid.clone());
@@ -296,7 +296,12 @@ impl<TGrid: Grid> SudokuSolver<TGrid> {
                             x,
                             y,
                             digit,
-                            previous_possibles: cell.possibles.clone(),
+                            remaining_possibles: cell
+                                .possibles
+                                .iter()
+                                .cloned()
+                                .filter(|x| *x != digit)
+                                .collect(),
                         };
                     }
                 }
