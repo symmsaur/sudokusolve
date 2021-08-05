@@ -35,7 +35,7 @@ fn draw_rectangle(left: i32, upper: i32, width: i32, height: i32, character: &st
     print!("{}", color::Fg(color::Black));
 }
 
-pub trait GridObserver {
+pub trait GridObserver: Clone {
     fn highlight_block(&self, _x: i32, _y: i32) {}
     fn clear_block(&self, _x: i32, _y: i32) {}
     fn highlight_row(&self, _y: i32) {}
@@ -46,9 +46,11 @@ pub trait GridObserver {
     fn clear_cell(&self, _x: i32, _y: i32, _cell: &Cell) {}
 }
 
+#[derive(Clone)]
 pub struct DummyObserver {}
 impl GridObserver for DummyObserver {}
 
+#[derive(Clone)]
 pub struct TermObserver {}
 impl TermObserver {
     pub fn new() -> TermObserver {
@@ -112,7 +114,7 @@ impl GridObserver for TermObserver {
             print!("{}", color::Fg(color::Black));
         }
         flush();
-        thread::sleep(time::Duration::from_millis(100));
+        //thread::sleep(time::Duration::from_millis(10));
     }
     fn clear_cell(&self, cell_x: i32, cell_y: i32, cell: &Cell) {
         if cell.possibles.len() == 1 {
