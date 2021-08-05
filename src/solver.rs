@@ -255,6 +255,7 @@ impl<TGrid: Grid> SudokuSolver<TGrid> {
                         }
                         let digit = guess.previous_possibles[1];
 
+                        let prev_digit = guess.digit;
                         guesses.push(Guess {
                             x: guess.x,
                             y: guess.y,
@@ -262,7 +263,7 @@ impl<TGrid: Grid> SudokuSolver<TGrid> {
                             previous_possibles: guess
                                 .previous_possibles
                                 .into_iter()
-                                .filter(|x| *x != digit)
+                                .filter(|x| *x != prev_digit)
                                 .collect(),
                         });
                         old_grids.push(self.grid.clone());
