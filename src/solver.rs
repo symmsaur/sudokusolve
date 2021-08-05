@@ -239,6 +239,10 @@ impl<TGrid: Grid> SudokuSolver<TGrid> {
             }
             if fail {
                 while let Some(guess) = guesses.pop() {
+                    print!(
+                        "{}                         ",
+                        termion::cursor::Goto(5 * 9 + 2, (guesses.len() + 1 + 1) as u16)
+                    );
                     let grid = old_grids.pop().unwrap();
                     let eliminated_old = eliminated_stack.pop().unwrap();
                     let solved_old = solved_stack.pop().unwrap();
@@ -282,6 +286,22 @@ impl<TGrid: Grid> SudokuSolver<TGrid> {
 
             let guess: &Guess = &guesses.last().unwrap();
             self.set_hint(guess.x, guess.y, guess.digit);
+            for (i, guess) in guesses.iter().enumerate() {
+                print!(
+                    "{} ({}, {}): {} [",
+                    termion::cursor::Goto(5 * 9 + 2, (i + 1) as u16),
+                    guess.x,
+                    guess.y,
+                    guess.digit,
+                );
+                for digit in guess.remaining_possibles.iter() {
+                    print!("{}", digit);
+                    if digit != guess.remaining_possibles.last().unwrap() {
+                        print!(", ");
+                    }
+                }
+                print!("]             ");
+            }
         }
     }
 
