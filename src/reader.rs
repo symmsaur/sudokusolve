@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::prelude::*;
 
-use crate::{Grid, SudokuSolver};
+use crate::solver::{Grid, SudokuSolver};
 
 pub fn read_hardcoded<TGrid: Grid>(solver: &mut SudokuSolver<TGrid>) {
     solver.set_hint(0, 0, 5);

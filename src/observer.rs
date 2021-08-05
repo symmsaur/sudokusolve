@@ -1,9 +1,8 @@
-use crate::Cell;
+use crate::solver::Cell;
 
 use std::io;
 use std::io::Write;
 use std::{thread, time};
-use termion::cursor::HideCursor;
 use termion::{clear, color, cursor};
 
 const GRID_SIZE: i32 = 5;
@@ -46,13 +45,7 @@ pub struct Highlight {
 
 impl Drop for Highlight {
     fn drop(&mut self) {
-        draw_rectangle(
-            self.x,
-            self.y,
-            self.width,
-            self.height,
-            " ",
-        );
+        draw_rectangle(self.x, self.y, self.width, self.height, " ");
     }
 }
 
