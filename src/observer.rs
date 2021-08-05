@@ -14,7 +14,7 @@ fn flush() {
 
 fn draw_rectangle(left: i32, upper: i32, width: i32, height: i32, character: &str) {
     print!("{}", color::Fg(color::LightBlue));
-    for x in left..(left + width) {
+    for x in left..(left + width + 1) {
         print!(
             "{}{}{}{}",
             cursor::Goto((x + 1) as u16, (upper + 1) as u16),
@@ -23,7 +23,7 @@ fn draw_rectangle(left: i32, upper: i32, width: i32, height: i32, character: &st
             character
         );
     }
-    for y in upper..(upper + height) {
+    for y in upper..(upper + height + 1) {
         print!(
             "{}{}{}{}",
             cursor::Goto((left + 1) as u16, (y + 1) as u16),
