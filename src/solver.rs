@@ -1,6 +1,5 @@
 use crate::observer::GridObserver;
 
-
 #[derive(Clone)]
 pub struct Cell {
     pub possibles: Vec<i32>,
@@ -68,7 +67,7 @@ impl<TObserver: GridObserver> ObserveableGrid<TObserver> {
     ) -> Result<(), EliminationError> {
         let block_start_x = (x / 3) * 3;
         let block_start_y = (y / 3) * 3;
-        let highlight = self.observer.highlight_block(block_start_x, block_start_y);
+        let _highlight = self.observer.highlight_block(block_start_x, block_start_y);
         self.observer.highlight_cell(x, y, self.cell(x, y), true);
         for y_mod in block_start_y..block_start_y + 3 {
             for x_mod in block_start_x..block_start_x + 3 {
@@ -96,7 +95,7 @@ impl<TObserver: GridObserver> ObserveableGrid<TObserver> {
         digit: i32,
         mark_solved: &mut F,
     ) -> Result<(), EliminationError> {
-        let highlight = self.observer.highlight_row(y);
+        let _highlight = self.observer.highlight_row(y);
         self.observer.highlight_cell(x, y, self.cell(x, y), true);
         for x_mod in 0..9 {
             if x_mod == x {
@@ -121,7 +120,7 @@ impl<TObserver: GridObserver> ObserveableGrid<TObserver> {
         digit: i32,
         mark_solved: &mut F,
     ) -> Result<(), EliminationError> {
-        let highlight = self.observer.highlight_column(x);
+        let _highlight = self.observer.highlight_column(x);
         self.observer.highlight_cell(x, y, self.cell(x, y), true);
         for y_mod in 0..9 {
             if y_mod == y {
