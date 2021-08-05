@@ -114,7 +114,7 @@ impl GridObserver for TermObserver {
             print!("{}", color::Fg(color::Black));
         }
         flush();
-        //thread::sleep(time::Duration::from_millis(10));
+        thread::sleep(time::Duration::from_millis(10));
     }
     fn clear_cell(&self, cell_x: i32, cell_y: i32, cell: &Cell) {
         if cell.possibles.len() == 1 {

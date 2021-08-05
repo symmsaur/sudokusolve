@@ -48,6 +48,7 @@ pub trait Grid: Clone {
         digit: i32,
         mark_solved: &mut F,
     ) -> Result<(), EliminationError>;
+    fn invalidate(&self);
 }
 
 #[derive(Clone)]
@@ -175,6 +176,14 @@ impl<TObserver: GridObserver> Grid for ObserveableGrid<TObserver> {
         self.eliminate_in_column(x, y, digit, mark_solved)?;
         Ok(())
     }
+
+    fn invalidate(&self) {
+        for y in 0..9 {
+            for x in 0..9 {
+                self.observer.highlight_cell(x, y, self.cell(x, y), false);
+            }
+        }
+    }
 }
 
 struct Guess {
@@ -289,6 +298,7 @@ impl<TGrid: Grid> SudokuSolver<TGrid> {
                         old_grids.push(self.grid.clone());
                         solved_stack.push(self.solved_cells.clone());
                         eliminated_stack.push(eliminated_cells.clone());
+                        self.grid.invalidate();
                         break;
                     }
                 }
@@ -307,8 +317,8 @@ impl<TGrid: Grid> SudokuSolver<TGrid> {
 
 fn main() {
     for i in 0..1011 {
-        //let observer = TermObserver::new();
-        let observer = observer::DummyObserver{};
+        let observer = TermObserver::new();
+        //let observer = observer::DummyObserver{};
         let grid = ObserveableGrid::new(observer);
         let mut solver = SudokuSolver::new(grid);
 
