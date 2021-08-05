@@ -3,6 +3,7 @@ use crate::Cell;
 use std::io;
 use std::io::Write;
 use std::{thread, time};
+use termion::cursor::HideCursor;
 use termion::{clear, color, cursor};
 
 const GRID_SIZE: i32 = 5;
@@ -35,13 +36,36 @@ fn draw_rectangle(left: i32, upper: i32, width: i32, height: i32, character: &st
     print!("{}", color::Fg(color::Black));
 }
 
+#[derive(Default)]
+pub struct Highlight {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+}
+
+impl Drop for Highlight {
+    fn drop(&mut self) {
+        draw_rectangle(
+            self.x,
+            self.y,
+            self.width,
+            self.height,
+            " ",
+        );
+    }
+}
+
 pub trait GridObserver: Clone {
-    fn highlight_block(&self, _x: i32, _y: i32) {}
-    fn clear_block(&self, _x: i32, _y: i32) {}
-    fn highlight_row(&self, _y: i32) {}
-    fn clear_row(&self, _y: i32) {}
-    fn highlight_column(&self, _x: i32) {}
-    fn clear_column(&self, _x: i32) {}
+    fn highlight_block(&self, _x: i32, _y: i32) -> Highlight {
+        Highlight::default()
+    }
+    fn highlight_row(&self, _y: i32) -> Highlight {
+        Highlight::default()
+    }
+    fn highlight_column(&self, _x: i32) -> Highlight {
+        Highlight::default()
+    }
     fn highlight_cell(&self, _x: i32, _y: i32, _cell: &Cell, _selected: bool) {}
     fn clear_cell(&self, _x: i32, _y: i32, _cell: &Cell) {}
 }
@@ -66,36 +90,48 @@ impl Drop for TermObserver {
 }
 
 impl GridObserver for TermObserver {
-    fn highlight_block(&self, x: i32, y: i32) {
-        draw_rectangle(
-            x * GRID_SIZE,
-            y * GRID_SIZE,
-            GRID_SIZE * 3,
-            GRID_SIZE * 3,
-            "#",
-        );
+    fn highlight_block(&self, x: i32, y: i32) -> Highlight {
+        let x = x * GRID_SIZE;
+        let y = y * GRID_SIZE;
+        let width = GRID_SIZE * 3;
+        let height = GRID_SIZE * 3;
+        draw_rectangle(x, y, width, height, "#");
+        Highlight {
+            x,
+            y,
+            width,
+            height,
+        }
     }
-    fn clear_block(&self, x: i32, y: i32) {
-        draw_rectangle(
-            x * GRID_SIZE,
-            y * GRID_SIZE,
-            GRID_SIZE * 3,
-            GRID_SIZE * 3,
-            " ",
-        );
+
+    fn highlight_row(&self, y: i32) -> Highlight {
+        let x = 0;
+        let y = y * GRID_SIZE;
+        let width = GRID_SIZE * 9;
+        let height = GRID_SIZE;
+        draw_rectangle(x, y, width, height, "#");
+        Highlight {
+            x,
+            y,
+            width,
+            height,
+        }
     }
-    fn highlight_row(&self, y: i32) {
-        draw_rectangle(0, y * GRID_SIZE, GRID_SIZE * 9, GRID_SIZE, "#");
+
+    fn highlight_column(&self, x: i32) -> Highlight {
+        let x = x * GRID_SIZE;
+        let y = 0;
+        let width = GRID_SIZE;
+        let height = GRID_SIZE * 9;
+        draw_rectangle(x, y, width, height, "#");
+        Highlight {
+            x,
+            y,
+            width,
+            height,
+        }
     }
-    fn clear_row(&self, y: i32) {
-        draw_rectangle(0, y * GRID_SIZE, GRID_SIZE * 9, GRID_SIZE, " ");
-    }
-    fn highlight_column(&self, x: i32) {
-        draw_rectangle(x * GRID_SIZE, 0, GRID_SIZE, GRID_SIZE * 9, "#");
-    }
-    fn clear_column(&self, x: i32) {
-        draw_rectangle(x * GRID_SIZE, 0, GRID_SIZE, GRID_SIZE * 9, " ");
-    }
+
     fn highlight_cell(&self, cell_x: i32, cell_y: i32, cell: &Cell, selected: bool) {
         for digit in 1..10 {
             let character = if cell.possibles.contains(&digit) {

@@ -74,7 +74,7 @@ impl<TObserver: GridObserver> ObserveableGrid<TObserver> {
     ) -> Result<(), EliminationError> {
         let block_start_x = (x / 3) * 3;
         let block_start_y = (y / 3) * 3;
-        self.observer.highlight_block(block_start_x, block_start_y);
+        let highlight = self.observer.highlight_block(block_start_x, block_start_y);
         self.observer.highlight_cell(x, y, self.cell(x, y), true);
         for y_mod in block_start_y..block_start_y + 3 {
             for x_mod in block_start_x..block_start_x + 3 {
@@ -92,7 +92,6 @@ impl<TObserver: GridObserver> ObserveableGrid<TObserver> {
             }
         }
         self.observer.clear_cell(x, y, self.cell(x, y));
-        self.observer.clear_block(block_start_x, block_start_y);
         Ok(())
     }
 
@@ -103,7 +102,7 @@ impl<TObserver: GridObserver> ObserveableGrid<TObserver> {
         digit: i32,
         mark_solved: &mut F,
     ) -> Result<(), EliminationError> {
-        self.observer.highlight_row(y);
+        let highlight = self.observer.highlight_row(y);
         self.observer.highlight_cell(x, y, self.cell(x, y), true);
         for x_mod in 0..9 {
             if x_mod == x {
@@ -118,7 +117,6 @@ impl<TObserver: GridObserver> ObserveableGrid<TObserver> {
             }
         }
         self.observer.clear_cell(x, y, self.cell(x, y));
-        self.observer.clear_row(y);
         Ok(())
     }
 
@@ -129,7 +127,7 @@ impl<TObserver: GridObserver> ObserveableGrid<TObserver> {
         digit: i32,
         mark_solved: &mut F,
     ) -> Result<(), EliminationError> {
-        self.observer.highlight_column(x);
+        let highlight = self.observer.highlight_column(x);
         self.observer.highlight_cell(x, y, self.cell(x, y), true);
         for y_mod in 0..9 {
             if y_mod == y {
@@ -144,7 +142,6 @@ impl<TObserver: GridObserver> ObserveableGrid<TObserver> {
             }
         }
         self.observer.clear_cell(x, y, self.cell(x, y));
-        self.observer.clear_column(x);
         Ok(())
     }
 }
