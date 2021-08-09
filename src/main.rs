@@ -34,7 +34,6 @@ fn main() {
         match reader::read("testdata/easy", &mut *solver, i) {
             Ok(()) => {
                 solver.solve();
-                println!("{}", i);
             }
             Err(msg) => {
                 println!("Failed to read file ({})", msg);
