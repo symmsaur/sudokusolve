@@ -67,7 +67,7 @@ pub trait GridObserver: Clone {
 }
 
 pub trait SolverObserver {
-    fn display_guesses(&self, _guesses: &[Guess]) {}
+    fn display_guesses(&mut self, _guesses: &[Guess]) {}
 }
 
 #[derive(Clone)]
@@ -176,16 +176,27 @@ impl GridObserver for TermObserver {
 pub struct DummySolverObserver {}
 impl SolverObserver for DummySolverObserver {}
 
-pub struct TermSolverObserver {}
+pub struct TermSolverObserver {
+    prev_num_guesses: usize,
+}
 
 impl TermSolverObserver {
     pub fn new() -> TermSolverObserver {
-        TermSolverObserver {}
+        TermSolverObserver {
+            prev_num_guesses: 0,
+        }
     }
 }
 
 impl SolverObserver for TermSolverObserver {
-    fn display_guesses(&self, guesses: &[Guess]) {
+    fn display_guesses(&mut self, guesses: &[Guess]) {
+        for i in guesses.len()..self.prev_num_guesses {
+            print!(
+                "{}                                  ",
+                cursor::Goto(5 * 9 + 2, (i + 1) as u16),
+            );
+        }
+        self.prev_num_guesses = guesses.len();
         for (i, guess) in guesses.iter().enumerate() {
             print!(
                 "{} ({}, {}): {} [",
