@@ -167,6 +167,9 @@ impl GridObserver for TermObserver {
     }
 }
 
+pub struct DummySolverObserver {}
+impl SolverObserver for DummySolverObserver {}
+
 pub struct TermSolverObserver {}
 
 impl TermSolverObserver {

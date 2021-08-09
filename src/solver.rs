@@ -183,29 +183,26 @@ pub struct Guess {
     pub remaining_possibles: Vec<i32>,
 }
 
+pub trait Solver {
+    fn set_hint(&mut self, x: i32, y: i32, hint: i32);
+    fn solve(&mut self);
+}
+
 pub struct SudokuSolver<TGrid: Grid, TObserver: SolverObserver> {
     grid: TGrid,
     observer: TObserver,
     solved_cells: Vec<(i32, i32)>,
 }
 
-impl<TGrid: Grid, TObserver: SolverObserver> SudokuSolver<TGrid, TObserver> {
-    pub fn new(grid: TGrid, observer: TObserver) -> SudokuSolver<TGrid, TObserver> {
-        SudokuSolver {
-            grid,
-            observer,
-            solved_cells: Vec::new(),
-        }
-    }
-
-    pub fn set_hint(&mut self, x: i32, y: i32, hint: i32) {
+impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObserver> {
+    fn set_hint(&mut self, x: i32, y: i32, hint: i32) {
         self.grid.set_hint(x, y, hint);
         if !self.solved_cells.contains(&(x, y)) {
             self.solved_cells.push((x, y));
         }
     }
 
-    pub fn solve(&mut self) {
+    fn solve(&mut self) {
         let mut eliminated_cells = Vec::new();
 
         let mut guesses: Vec<Guess> = Vec::new();
@@ -289,6 +286,16 @@ impl<TGrid: Grid, TObserver: SolverObserver> SudokuSolver<TGrid, TObserver> {
             let guess: &Guess = &guesses.last().unwrap();
             self.set_hint(guess.x, guess.y, guess.digit);
             self.observer.display_guesses(&guesses);
+        }
+    }
+}
+
+impl<TGrid: Grid, TObserver: SolverObserver> SudokuSolver<TGrid, TObserver> {
+    pub fn new(grid: TGrid, observer: TObserver) -> SudokuSolver<TGrid, TObserver> {
+        SudokuSolver {
+            grid,
+            observer,
+            solved_cells: Vec::new(),
         }
     }
 
