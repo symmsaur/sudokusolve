@@ -1,10 +1,15 @@
 use std::fs::File;
 use std::io::prelude::*;
 
-use crate::solver::{Grid, SudokuSolver};
+use crate::{
+    observer::SolverObserver,
+    solver::{Grid, SudokuSolver},
+};
 
 #[allow(dead_code)] // Useful as hardcoded example
-pub fn read_hardcoded<TGrid: Grid>(solver: &mut SudokuSolver<TGrid>) {
+pub fn read_hardcoded<TGrid: Grid, TObserver: SolverObserver>(
+    solver: &mut SudokuSolver<TGrid, TObserver>,
+) {
     solver.set_hint(0, 0, 5);
     solver.set_hint(1, 0, 3);
     solver.set_hint(4, 0, 7);
@@ -45,9 +50,9 @@ pub fn read_hardcoded<TGrid: Grid>(solver: &mut SudokuSolver<TGrid>) {
     solver.set_hint(8, 8, 9);
 }
 
-pub fn read<TGrid: Grid>(
+pub fn read<TGrid: Grid, TObserver: SolverObserver>(
     filename: &str,
-    solver: &mut SudokuSolver<TGrid>,
+    solver: &mut SudokuSolver<TGrid, TObserver>,
     offset: usize,
 ) -> std::io::Result<()> {
     let mut file = File::open(filename)?;

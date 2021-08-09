@@ -1,4 +1,4 @@
-use crate::observer::GridObserver;
+use crate::observer::{GridObserver, SolverObserver};
 
 #[derive(Clone)]
 pub struct Cell {
@@ -176,22 +176,24 @@ impl<TObserver: GridObserver> Grid for ObserveableGrid<TObserver> {
     }
 }
 
-struct Guess {
-    x: i32,
-    y: i32,
-    digit: i32,
-    remaining_possibles: Vec<i32>,
+pub struct Guess {
+    pub x: i32,
+    pub y: i32,
+    pub digit: i32,
+    pub remaining_possibles: Vec<i32>,
 }
 
-pub struct SudokuSolver<TGrid: Grid> {
+pub struct SudokuSolver<TGrid: Grid, TObserver: SolverObserver> {
     grid: TGrid,
+    observer: TObserver,
     solved_cells: Vec<(i32, i32)>,
 }
 
-impl<TGrid: Grid> SudokuSolver<TGrid> {
-    pub fn new(grid: TGrid) -> SudokuSolver<TGrid> {
+impl<TGrid: Grid, TObserver: SolverObserver> SudokuSolver<TGrid, TObserver> {
+    pub fn new(grid: TGrid, observer: TObserver) -> SudokuSolver<TGrid, TObserver> {
         SudokuSolver {
-            grid: grid.clone(),
+            grid,
+            observer,
             solved_cells: Vec::new(),
         }
     }
@@ -286,22 +288,7 @@ impl<TGrid: Grid> SudokuSolver<TGrid> {
 
             let guess: &Guess = &guesses.last().unwrap();
             self.set_hint(guess.x, guess.y, guess.digit);
-            for (i, guess) in guesses.iter().enumerate() {
-                print!(
-                    "{} ({}, {}): {} [",
-                    termion::cursor::Goto(5 * 9 + 2, (i + 1) as u16),
-                    guess.x,
-                    guess.y,
-                    guess.digit,
-                );
-                for digit in guess.remaining_possibles.iter() {
-                    print!("{}", digit);
-                    if digit != guess.remaining_possibles.last().unwrap() {
-                        print!(", ");
-                    }
-                }
-                print!("]             ");
-            }
+            self.observer.display_guesses(&guesses);
         }
     }
 

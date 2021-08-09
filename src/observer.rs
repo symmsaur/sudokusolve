@@ -1,4 +1,4 @@
-use crate::solver::Cell;
+use crate::solver::{Cell, Guess};
 
 use std::io;
 use std::io::Write;
@@ -63,9 +63,13 @@ pub trait GridObserver: Clone {
     fn clear_cell(&self, _x: i32, _y: i32, _cell: &Cell) {}
 }
 
+pub trait SolverObserver {
+    fn display_guesses(&self, _guesses: &[Guess]) {}
+}
+
 #[derive(Clone)]
-pub struct DummyObserver {}
-impl GridObserver for DummyObserver {}
+pub struct DummyGridObserver {}
+impl GridObserver for DummyGridObserver {}
 
 #[derive(Clone)]
 pub struct TermObserver {}
@@ -160,5 +164,34 @@ impl GridObserver for TermObserver {
             print!("{}{}", cursor::Goto(x, y), character)
         }
         print!("{}", color::Fg(color::Black));
+    }
+}
+
+pub struct TermSolverObserver {}
+
+impl TermSolverObserver {
+    pub fn new() -> TermSolverObserver {
+        TermSolverObserver {}
+    }
+}
+
+impl SolverObserver for TermSolverObserver {
+    fn display_guesses(&self, guesses: &[Guess]) {
+        for (i, guess) in guesses.iter().enumerate() {
+            print!(
+                "{} ({}, {}): {} [",
+                termion::cursor::Goto(5 * 9 + 2, (i + 1) as u16),
+                guess.x,
+                guess.y,
+                guess.digit,
+            );
+            for digit in guess.remaining_possibles.iter() {
+                print!("{}", digit);
+                if digit != guess.remaining_possibles.last().unwrap() {
+                    print!(", ");
+                }
+            }
+            print!("]             ");
+        }
     }
 }

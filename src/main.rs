@@ -4,6 +4,8 @@ mod observer;
 mod reader;
 mod solver;
 
+use observer::TermSolverObserver;
+
 use crate::observer::TermObserver;
 use crate::solver::{ObserveableGrid, SudokuSolver};
 
@@ -12,7 +14,8 @@ fn main() {
         let observer = TermObserver::new();
         //let observer = observer::DummyObserver{};
         let grid = ObserveableGrid::new(observer);
-        let mut solver = SudokuSolver::new(grid);
+        let solver_observer = TermSolverObserver::new();
+        let mut solver = SudokuSolver::new(grid, solver_observer);
 
         match reader::read("testdata/easy", &mut solver, i) {
             Ok(()) => {
