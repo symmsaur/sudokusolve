@@ -41,11 +41,14 @@ pub struct Highlight {
     y: i32,
     width: i32,
     height: i32,
+    active: bool,
 }
 
 impl Drop for Highlight {
     fn drop(&mut self) {
-        draw_rectangle(self.x, self.y, self.width, self.height, " ");
+        if self.active {
+            draw_rectangle(self.x, self.y, self.width, self.height, " ");
+        }
     }
 }
 
@@ -98,6 +101,7 @@ impl GridObserver for TermObserver {
             y,
             width,
             height,
+            active: true,
         }
     }
 
@@ -112,6 +116,7 @@ impl GridObserver for TermObserver {
             y,
             width,
             height,
+            active: true,
         }
     }
 
@@ -126,6 +131,7 @@ impl GridObserver for TermObserver {
             y,
             width,
             height,
+            active: true,
         }
     }
 
@@ -183,7 +189,7 @@ impl SolverObserver for TermSolverObserver {
         for (i, guess) in guesses.iter().enumerate() {
             print!(
                 "{} ({}, {}): {} [",
-                termion::cursor::Goto(5 * 9 + 2, (i + 1) as u16),
+                cursor::Goto(5 * 9 + 2, (i + 1) as u16),
                 guess.x,
                 guess.y,
                 guess.digit,

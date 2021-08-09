@@ -19,22 +19,22 @@ struct Opts {
 fn main() {
     let opts = Opts::parse();
 
-    let mut solver: Box<dyn Solver> = if !opts.no_observe {
-        let observer = TermObserver::new();
-        let grid = ObserveableGrid::new(observer);
-        let solver_observer = TermSolverObserver::new();
-        Box::new(SudokuSolver::new(grid, solver_observer))
-    } else {
-        let observer = DummyGridObserver {};
-        let grid = ObserveableGrid::new(observer);
-        let solver_observer = DummySolverObserver {};
-        Box::new(SudokuSolver::new(grid, solver_observer))
-    };
-
     for i in 0..1011 {
+        let mut solver: Box<dyn Solver> = if !opts.no_observe {
+            let observer = TermObserver::new();
+            let grid = ObserveableGrid::new(observer);
+            let solver_observer = TermSolverObserver::new();
+            Box::new(SudokuSolver::new(grid, solver_observer))
+        } else {
+            let observer = DummyGridObserver {};
+            let grid = ObserveableGrid::new(observer);
+            let solver_observer = DummySolverObserver {};
+            Box::new(SudokuSolver::new(grid, solver_observer))
+        };
         match reader::read("testdata/easy", &mut *solver, i) {
             Ok(()) => {
                 solver.solve();
+                println!("{}", i);
             }
             Err(msg) => {
                 println!("Failed to read file ({})", msg);

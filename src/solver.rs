@@ -238,10 +238,6 @@ impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObs
             }
             if fail {
                 while let Some(guess) = guesses.pop() {
-                    print!(
-                        "{}                         ",
-                        termion::cursor::Goto(5 * 9 + 2, (guesses.len() + 1 + 1) as u16)
-                    );
                     let grid = old_grids.pop().unwrap();
                     let eliminated_old = eliminated_stack.pop().unwrap();
                     let solved_old = solved_stack.pop().unwrap();
