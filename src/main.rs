@@ -4,9 +4,7 @@ mod observer;
 mod reader;
 mod solver;
 
-use observer::TermSolverObserver;
-
-use crate::observer::TermObserver;
+use crate::observer::{TermObserver, TermSolverObserver};
 use crate::solver::{ObserveableGrid, SudokuSolver};
 
 fn main() {
