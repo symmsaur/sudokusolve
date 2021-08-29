@@ -176,6 +176,7 @@ impl<TObserver: GridObserver> Grid for ObserveableGrid<TObserver> {
     }
 }
 
+#[derive(Clone)]
 pub struct Guess {
     pub x: i32,
     pub y: i32,
@@ -194,6 +195,13 @@ pub struct SudokuSolver<TGrid: Grid, TObserver: SolverObserver> {
     solved_cells: Vec<(i32, i32)>,
 }
 
+struct SolverState<TGrid: Grid> {
+    guess: Guess,
+    grid: TGrid,
+    eliminated: Vec<(i32, i32)>,
+    solved: Vec<(i32, i32)>,
+}
+
 impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObserver> {
     fn set_hint(&mut self, x: i32, y: i32, hint: i32) {
         self.grid.set_hint(x, y, hint);
@@ -205,10 +213,7 @@ impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObs
     fn solve(&mut self) {
         let mut eliminated_cells = Vec::new();
 
-        let mut guesses: Vec<Guess> = Vec::new();
-        let mut old_grids = Vec::new();
-        let mut solved_stack = Vec::new();
-        let mut eliminated_stack = Vec::new();
+        let mut state_stack: Vec<SolverState<TGrid>> = Vec::new();
 
         while eliminated_cells.len() < 81 {
             let mut fail = false;
@@ -237,51 +242,57 @@ impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObs
                 break;
             }
             if fail {
-                while let Some(guess) = guesses.pop() {
-                    let grid = old_grids.pop().unwrap();
-                    let eliminated_old = eliminated_stack.pop().unwrap();
-                    let solved_old = solved_stack.pop().unwrap();
+                while let Some(state) = state_stack.pop() {
                     // This guess was wrong, can we make a new one?
-                    if guess.remaining_possibles.len() > 0 {
-                        self.grid = grid;
-                        eliminated_cells = eliminated_old;
-                        self.solved_cells = solved_old;
+                    if state.guess.remaining_possibles.len() > 0 {
+                        self.grid = state.grid;
+                        eliminated_cells = state.eliminated;
+                        self.solved_cells = state.solved;
                         self.grid
-                            .cell_mut(guess.x, guess.y)
-                            .eliminate_possible(guess.digit)
+                            .cell_mut(state.guess.x, state.guess.y)
+                            .eliminate_possible(state.guess.digit)
                             .expect("Should always be able to eliminate");
-                        if self.grid.cell(guess.x, guess.y).possibles.len() == 1 {
-                            self.solved_cells.push((guess.x, guess.y));
+                        if self.grid.cell(state.guess.x, state.guess.y).possibles.len() == 1 {
+                            self.solved_cells.push((state.guess.x, state.guess.y));
                         }
-                        let digit = guess.remaining_possibles[0];
+                        let digit = state.guess.remaining_possibles[0];
 
-                        guesses.push(Guess {
-                            x: guess.x,
-                            y: guess.y,
-                            digit,
-                            remaining_possibles: guess
-                                .remaining_possibles
-                                .into_iter()
-                                .filter(|x| *x != digit)
-                                .collect(),
+                        state_stack.push(SolverState {
+                            guess: Guess {
+                                x: state.guess.x,
+                                y: state.guess.y,
+                                digit,
+                                remaining_possibles: state
+                                    .guess
+                                    .remaining_possibles
+                                    .into_iter()
+                                    .filter(|x| *x != digit)
+                                    .collect(),
+                            },
+                            grid: self.grid.clone(),
+                            solved: self.solved_cells.clone(),
+                            eliminated: eliminated_cells.clone(),
                         });
-                        old_grids.push(self.grid.clone());
-                        solved_stack.push(self.solved_cells.clone());
-                        eliminated_stack.push(eliminated_cells.clone());
                         self.grid.invalidate();
                         break;
                     }
                 }
             } else {
-                guesses.push(self.find_guess());
-                old_grids.push(self.grid.clone());
-                solved_stack.push(self.solved_cells.clone());
-                eliminated_stack.push(eliminated_cells.clone());
+                state_stack.push(SolverState {
+                    guess: self.find_guess(),
+                    grid: self.grid.clone(),
+                    solved: self.solved_cells.clone(),
+                    eliminated: eliminated_cells.clone(),
+                });
             }
 
-            let guess: &Guess = &guesses.last().unwrap();
+            let guess: &Guess = &state_stack.last().unwrap().guess;
             self.set_hint(guess.x, guess.y, guess.digit);
-            self.observer.display_guesses(&guesses);
+            let vec: Vec<Guess> = state_stack
+                .iter()
+                .map(|s| s.guess.clone())
+                .collect::<Vec<Guess>>();
+            self.observer.display_guesses(&vec);
         }
     }
 }
