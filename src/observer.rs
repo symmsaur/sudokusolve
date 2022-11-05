@@ -1,4 +1,5 @@
-use crate::solver::{Cell, Guess};
+use crate::cell::Cell;
+use crate::solver::Guess;
 
 use std::io;
 use std::io::Write;
@@ -137,7 +138,7 @@ impl GridObserver for TermObserver {
 
     fn highlight_cell(&self, cell_x: i32, cell_y: i32, cell: &Cell, selected: bool) {
         for digit in 1..10 {
-            let character = if cell.possibles.contains(&digit) {
+            let character = if cell.is_possible(digit) {
                 digit.to_string()
             } else {
                 " ".to_string()
@@ -156,11 +157,11 @@ impl GridObserver for TermObserver {
         thread::sleep(time::Duration::from_millis(1));
     }
     fn clear_cell(&self, cell_x: i32, cell_y: i32, cell: &Cell) {
-        if cell.possibles.len() == 1 {
+        if cell.num_possibles() == 1 {
             print!("{}", color::Fg(color::Green));
         }
         for digit in 1..10 {
-            let character = if cell.possibles.contains(&digit) {
+            let character = if cell.is_possible(digit) {
                 digit.to_string()
             } else {
                 " ".to_string()

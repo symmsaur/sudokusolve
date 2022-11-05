@@ -1,35 +1,6 @@
+use crate::cell::{Cell, EliminationError};
 use crate::observer::{GridObserver, SolverObserver};
 use bitmaps::Bitmap;
-
-#[derive(Clone)]
-pub struct Cell {
-    pub possibles: Vec<i32>,
-}
-
-impl Cell {
-    fn new() -> Cell {
-        Cell {
-            possibles: (1..10).collect(),
-        }
-    }
-
-    fn set_hint(self: &mut Cell, hint: i32) {
-        self.possibles.clear();
-        self.possibles.push(hint);
-    }
-
-    fn eliminate_possible(self: &mut Cell, digit: i32) -> Result<(), EliminationError> {
-        self.possibles.retain(|i| *i != digit);
-        if self.possibles.len() == 0 {
-            Err(EliminationError {})
-        } else {
-            Ok(())
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct EliminationError {}
 
 pub trait Grid: Clone {
     fn cell_mut(&mut self, x: i32, y: i32) -> &mut Cell;
@@ -80,7 +51,7 @@ impl<TObserver: GridObserver> ObserveableGrid<TObserver> {
                 self.cell_mut(x_mod, y_mod).eliminate_possible(digit)?;
                 self.observer
                     .clear_cell(x_mod, y_mod, self.cell(x_mod, y_mod));
-                if self.cell(x_mod, y_mod).possibles.len() == 1 {
+                if self.cell(x_mod, y_mod).num_possibles() == 1 {
                     mark_solved((x_mod, y_mod));
                 }
             }
@@ -106,7 +77,7 @@ impl<TObserver: GridObserver> ObserveableGrid<TObserver> {
                 .highlight_cell(x_mod, y, self.cell(x_mod, y), false);
             self.cell_mut(x_mod, y).eliminate_possible(digit)?;
             self.observer.clear_cell(x_mod, y, self.cell(x_mod, y));
-            if self.cell(x_mod, y).possibles.len() == 1 {
+            if self.cell(x_mod, y).num_possibles() == 1 {
                 mark_solved((x_mod, y));
             }
         }
@@ -131,7 +102,7 @@ impl<TObserver: GridObserver> ObserveableGrid<TObserver> {
                 .highlight_cell(x, y_mod, self.cell(x, y_mod), false);
             self.cell_mut(x, y_mod).eliminate_possible(digit)?;
             self.observer.clear_cell(x, y_mod, self.cell(x, y_mod));
-            if self.cell(x, y_mod).possibles.len() == 1 {
+            if self.cell(x, y_mod).num_possibles() == 1 {
                 mark_solved((x, y_mod));
             }
         }
@@ -231,8 +202,8 @@ impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObs
                     }
                 };
 
-                assert!(self.grid.cell(x, y).possibles.len() == 1);
-                let digit = self.grid.cell(x, y).possibles[0];
+                assert!(self.grid.cell(x, y).num_possibles() == 1);
+                let digit = self.grid.cell(x, y).first_possible().unwrap();
                 match self.grid.eliminate(x, y, digit, &mut push_cell) {
                     Ok(_) => {}
                     Err(_) => {
@@ -255,7 +226,7 @@ impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObs
                             .cell_mut(state.guess.x, state.guess.y)
                             .eliminate_possible(state.guess.digit)
                             .expect("Should always be able to eliminate");
-                        if self.grid.cell(state.guess.x, state.guess.y).possibles.len() == 1 {
+                        if self.grid.cell(state.guess.x, state.guess.y).num_possibles() == 1 {
                             self.cells_to_eliminate.push((state.guess.x, state.guess.y));
                         }
                         let digit = state.guess.remaining_possibles[0];
@@ -314,18 +285,13 @@ impl<TGrid: Grid, TObserver: SolverObserver> SudokuSolver<TGrid, TObserver> {
             for y in 0..9 {
                 for x in 0..9 {
                     let cell = self.grid.cell(x, y);
-                    if cell.possibles.len() == num_digits {
-                        let digit = *cell.possibles.first().unwrap();
+                    if cell.num_possibles() == num_digits {
+                        let digit = cell.first_possible().unwrap();
                         return Guess {
                             x,
                             y,
                             digit,
-                            remaining_possibles: cell
-                                .possibles
-                                .iter()
-                                .cloned()
-                                .filter(|x| *x != digit)
-                                .collect(),
+                            remaining_possibles: cell.possibles_except(digit),
                         };
                     }
                 }

@@ -2,6 +2,7 @@ extern crate bitmaps;
 extern crate clap;
 extern crate termion;
 
+mod cell;
 mod observer;
 mod reader;
 mod solver;
