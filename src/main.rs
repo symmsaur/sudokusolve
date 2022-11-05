@@ -1,3 +1,4 @@
+extern crate bitmaps;
 extern crate clap;
 extern crate termion;
 

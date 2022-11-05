@@ -1,4 +1,5 @@
 use crate::observer::{GridObserver, SolverObserver};
+use bitmaps::Bitmap;
 
 #[derive(Clone)]
 pub struct Cell {
@@ -192,39 +193,41 @@ pub trait Solver {
 pub struct SudokuSolver<TGrid: Grid, TObserver: SolverObserver> {
     grid: TGrid,
     observer: TObserver,
-    solved_cells: Vec<(i32, i32)>,
+    cells_to_eliminate: Vec<(i32, i32)>,
 }
 
 struct SolverState<TGrid: Grid> {
     guess: Guess,
     grid: TGrid,
-    eliminated: Vec<(i32, i32)>,
+    eliminated: Bitmap<81>,
     solved: Vec<(i32, i32)>,
 }
 
 impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObserver> {
     fn set_hint(&mut self, x: i32, y: i32, hint: i32) {
         self.grid.set_hint(x, y, hint);
-        if !self.solved_cells.contains(&(x, y)) {
-            self.solved_cells.push((x, y));
+        if !self.cells_to_eliminate.contains(&(x, y)) {
+            self.cells_to_eliminate.push((x, y));
         }
     }
 
     fn solve(&mut self) {
-        let mut eliminated_cells = Vec::new();
+        let mut solved_cells = Bitmap::<81>::new();
 
         let mut state_stack: Vec<SolverState<TGrid>> = Vec::new();
 
-        while eliminated_cells.len() < 81 {
+        while solved_cells.len() < 81 {
             let mut fail = false;
-            while let Some((x, y)) = self.solved_cells.pop() {
-                assert!(!eliminated_cells.contains(&(x, y)));
-                eliminated_cells.push((x, y));
+            while let Some((x, y)) = self.cells_to_eliminate.pop() {
+                assert!(!solved_cells.get((y * 9 + x) as usize));
+                solved_cells.set((y * 9 + x) as usize, true);
 
-                let solved_cells_ref = &mut self.solved_cells;
+                let cells_to_eliminate_ref = &mut self.cells_to_eliminate;
                 let mut push_cell = |pos| {
-                    if !eliminated_cells.contains(&pos) && !solved_cells_ref.contains(&pos) {
-                        solved_cells_ref.push(pos);
+                    if !cells_to_eliminate_ref.contains(&pos)
+                        && !solved_cells.get((&pos.1 * 9 + &pos.0) as usize)
+                    {
+                        cells_to_eliminate_ref.push(pos);
                     }
                 };
 
@@ -238,7 +241,7 @@ impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObs
                     }
                 }
             }
-            if eliminated_cells.len() == 81 {
+            if solved_cells.len() == 81 {
                 break;
             }
             if fail {
@@ -246,14 +249,14 @@ impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObs
                     // This guess was wrong, can we make a new one?
                     if state.guess.remaining_possibles.len() > 0 {
                         self.grid = state.grid;
-                        eliminated_cells = state.eliminated;
-                        self.solved_cells = state.solved;
+                        solved_cells = state.eliminated;
+                        self.cells_to_eliminate = state.solved;
                         self.grid
                             .cell_mut(state.guess.x, state.guess.y)
                             .eliminate_possible(state.guess.digit)
                             .expect("Should always be able to eliminate");
                         if self.grid.cell(state.guess.x, state.guess.y).possibles.len() == 1 {
-                            self.solved_cells.push((state.guess.x, state.guess.y));
+                            self.cells_to_eliminate.push((state.guess.x, state.guess.y));
                         }
                         let digit = state.guess.remaining_possibles[0];
 
@@ -270,8 +273,8 @@ impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObs
                                     .collect(),
                             },
                             grid: self.grid.clone(),
-                            solved: self.solved_cells.clone(),
-                            eliminated: eliminated_cells.clone(),
+                            solved: self.cells_to_eliminate.clone(),
+                            eliminated: solved_cells.clone(),
                         });
                         self.grid.invalidate();
                         break;
@@ -281,8 +284,8 @@ impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObs
                 state_stack.push(SolverState {
                     guess: self.find_guess(),
                     grid: self.grid.clone(),
-                    solved: self.solved_cells.clone(),
-                    eliminated: eliminated_cells.clone(),
+                    solved: self.cells_to_eliminate.clone(),
+                    eliminated: solved_cells.clone(),
                 });
             }
 
@@ -302,7 +305,7 @@ impl<TGrid: Grid, TObserver: SolverObserver> SudokuSolver<TGrid, TObserver> {
         SudokuSolver {
             grid,
             observer,
-            solved_cells: Vec::new(),
+            cells_to_eliminate: Vec::new(),
         }
     }
 
