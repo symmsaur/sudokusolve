@@ -46,6 +46,6 @@ impl Cell {
     }
 
     pub fn is_possible(&self, digit: i32) -> bool {
-        self.possibles.get(digit as usize)
+        self.possibles.get((digit - 1) as usize)
     }
 }
