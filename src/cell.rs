@@ -3,7 +3,7 @@ use bitmaps::Bitmap;
 #[derive(Debug)]
 pub struct EliminationError {}
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Cell {
     possibles: Bitmap<9>,
 }
@@ -11,7 +11,7 @@ pub struct Cell {
 impl Cell {
     pub fn new() -> Cell {
         Cell {
-            possibles: Bitmap::mask(9)
+            possibles: Bitmap::mask(9),
         }
     }
 

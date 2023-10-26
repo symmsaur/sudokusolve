@@ -53,7 +53,7 @@ impl Drop for Highlight {
     }
 }
 
-pub trait GridObserver: Clone {
+pub trait GridObserver: Clone + std::fmt::Debug {
     fn highlight_block(&self, _x: i32, _y: i32) -> Highlight {
         Highlight::default()
     }
@@ -71,11 +71,11 @@ pub trait SolverObserver {
     fn display_guesses(&mut self, _guesses: &[Guess]) {}
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DummyGridObserver {}
 impl GridObserver for DummyGridObserver {}
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TermObserver {}
 impl TermObserver {
     pub fn new() -> TermObserver {

@@ -2,7 +2,7 @@ use crate::cell::{Cell, EliminationError};
 use crate::observer::{GridObserver, SolverObserver};
 use bitmaps::Bitmap;
 
-pub trait Grid: Clone {
+pub trait Grid: Clone + std::fmt::Debug {
     fn cell_mut(&mut self, x: i32, y: i32) -> &mut Cell;
     fn cell(&self, x: i32, y: i32) -> &Cell;
     fn set_hint(&mut self, x: i32, y: i32, hint: i32);
@@ -16,7 +16,7 @@ pub trait Grid: Clone {
     fn invalidate(&self);
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ObserveableGrid<TObserver: GridObserver> {
     cells: Vec<Cell>, // Should have exactly 81 elements
     observer: TObserver,
@@ -148,7 +148,7 @@ impl<TObserver: GridObserver> Grid for ObserveableGrid<TObserver> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Guess {
     pub x: i32,
     pub y: i32,
@@ -167,6 +167,7 @@ pub struct SudokuSolver<TGrid: Grid, TObserver: SolverObserver> {
     cells_to_eliminate: Vec<(i32, i32)>,
 }
 
+#[derive(Debug)]
 struct SolverState<TGrid: Grid> {
     guess: Guess,
     grid: TGrid,
