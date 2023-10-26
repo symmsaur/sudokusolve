@@ -1,0 +1,34 @@
+#+title: Sudokusolve
+
+Sudokus are neat.
+
+A reasonably fast and efficient sudoku solver. Includes compile-time optional TUI visualization.
+
+* Usage
+
+With visualization
+#+begin_src bash
+cargo run
+#+end_src
+
+With visualization turned off and to get best performance
+#+begin_src bash
+cargo run --release -- -n
+#+end_src
+
+* How it works
+
+We use hints and solved cells to eliminate possibile digits from other cells. Doing this iteratively until no more digits can be eliminated can solve some sudokus.
+
+To solve harder sudokus we need to be a bit more clever. For one of the unsolved cells we guess a solution. We can then use this to try and eliminate more possibilites and maybe solve the sudoku. If it still isn't solved we can make another guess and continue eliminating possibilites. The stacked guesses form a -- stack.
+
+If we're lucky we guessed right and the sudoku is solved. Otherwise we will find a contradiction. The guessed digit can then be eliminated and we make another guess in the same cell. If there are no possible guesses left, pop the guess stack, eliminate the guess on that level, and restore the state to what it was before making that guess. We can then make a new guess. This continues until we're out of guesses to make or the sudoku is solved.
+
+This is where you can become interested in Prolog.
+
+* Limitations
+
+- Data paths are hard coded.
+- Only handles valid sudokus with a unique valid solution.
+- Terminal must be wide enough for visualization to work.
+- Visualization leaves terminal in bad state if program is interrupted (for example using Ctrl-C).
