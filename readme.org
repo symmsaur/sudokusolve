@@ -29,6 +29,6 @@ This is where you can become interested in Prolog.
 * Limitations
 
 - Data paths are hard coded.
-- Only handles valid sudokus with a unique valid solution.
+- Only handles valid sudokus with a unique solution.
 - Terminal must be wide enough for visualization to work.
 - Visualization leaves terminal in bad state if program is interrupted (for example using Ctrl-C).
