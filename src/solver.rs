@@ -171,8 +171,8 @@ pub struct SudokuSolver<TGrid: Grid, TObserver: SolverObserver> {
 struct SolverState<TGrid: Grid> {
     guess: Guess,
     grid: TGrid,
-    eliminated: Bitmap<81>,
-    solved: Vec<(i32, i32)>,
+    solved_cells: Bitmap<81>,
+    cells_to_eliminate: Vec<(i32, i32)>,
 }
 
 impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObserver> {
@@ -185,81 +185,27 @@ impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObs
 
     fn solve(&mut self) {
         let mut solved_cells = Bitmap::<81>::new();
-
         let mut state_stack: Vec<SolverState<TGrid>> = Vec::new();
 
         while solved_cells.len() < 81 {
-            let mut fail = false;
-            while let Some((x, y)) = self.cells_to_eliminate.pop() {
-                assert!(!solved_cells.get((y * 9 + x) as usize));
-                solved_cells.set((y * 9 + x) as usize, true);
-
-                let cells_to_eliminate_ref = &mut self.cells_to_eliminate;
-                let mut push_cell = |pos| {
-                    if !cells_to_eliminate_ref.contains(&pos)
-                        && !solved_cells.get((&pos.1 * 9 + &pos.0) as usize)
-                    {
-                        cells_to_eliminate_ref.push(pos);
-                    }
-                };
-
-                assert!(self.grid.cell(x, y).num_possibles() == 1);
-                let digit = self.grid.cell(x, y).first_possible().unwrap();
-                match self.grid.eliminate(x, y, digit, &mut push_cell) {
-                    Ok(_) => {}
-                    Err(_) => {
-                        fail = true;
-                        break;
-                    }
+            match self.eliminate_all(solved_cells) {
+                Ok(new_solved_cells) => {
+                    solved_cells = new_solved_cells;
+                }
+                Err(_) => {
+                    self.backtrack_and_make_new_guess(&mut state_stack, &mut solved_cells);
+                    continue;
                 }
             }
             if solved_cells.len() == 81 {
                 break;
             }
-            if fail {
-                while let Some(state) = state_stack.pop() {
-                    // This guess was wrong, can we make a new one?
-                    if state.guess.remaining_possibles.len() > 0 {
-                        self.grid = state.grid;
-                        solved_cells = state.eliminated;
-                        self.cells_to_eliminate = state.solved;
-                        self.grid
-                            .cell_mut(state.guess.x, state.guess.y)
-                            .eliminate_possible(state.guess.digit)
-                            .expect("Should always be able to eliminate");
-                        if self.grid.cell(state.guess.x, state.guess.y).num_possibles() == 1 {
-                            self.cells_to_eliminate.push((state.guess.x, state.guess.y));
-                        }
-                        let digit = state.guess.remaining_possibles[0];
-
-                        state_stack.push(SolverState {
-                            guess: Guess {
-                                x: state.guess.x,
-                                y: state.guess.y,
-                                digit,
-                                remaining_possibles: state
-                                    .guess
-                                    .remaining_possibles
-                                    .into_iter()
-                                    .filter(|x| *x != digit)
-                                    .collect(),
-                            },
-                            grid: self.grid.clone(),
-                            solved: self.cells_to_eliminate.clone(),
-                            eliminated: solved_cells.clone(),
-                        });
-                        self.grid.invalidate();
-                        break;
-                    }
-                }
-            } else {
-                state_stack.push(SolverState {
-                    guess: self.find_guess(),
-                    grid: self.grid.clone(),
-                    solved: self.cells_to_eliminate.clone(),
-                    eliminated: solved_cells.clone(),
-                });
-            }
+            state_stack.push(SolverState {
+                guess: self.find_guess(),
+                grid: self.grid.clone(),
+                cells_to_eliminate: self.cells_to_eliminate.clone(),
+                solved_cells: solved_cells.clone(),
+            });
 
             let guess: &Guess = &state_stack.last().unwrap().guess;
             self.set_hint(guess.x, guess.y, guess.digit);
@@ -279,6 +225,81 @@ impl<TGrid: Grid, TObserver: SolverObserver> SudokuSolver<TGrid, TObserver> {
             observer,
             cells_to_eliminate: Vec::new(),
         }
+    }
+
+    // FIXME: ugly procedure should be untangled
+    fn backtrack_and_make_new_guess(
+        &mut self,
+        state_stack: &mut Vec<SolverState<TGrid>>,
+        solved_cells: &mut Bitmap<81>,
+    ) {
+        // This guess was wrong, can we make a new one?
+        while let Some(old_state) = state_stack.pop() {
+            if old_state.guess.remaining_possibles.len() == 0 {
+                continue;
+            }
+            self.grid = old_state.grid;
+            *solved_cells = old_state.solved_cells;
+            self.cells_to_eliminate = old_state.cells_to_eliminate;
+            // Eliminate old guess.
+            self.grid
+                .cell_mut(old_state.guess.x, old_state.guess.y)
+                .eliminate_possible(old_state.guess.digit)
+                .expect("Should always be able to eliminate");
+            if self
+                .grid
+                .cell(old_state.guess.x, old_state.guess.y)
+                .num_possibles()
+                == 1
+            {
+                self.cells_to_eliminate
+                    .push((old_state.guess.x, old_state.guess.y));
+            }
+            let digit = old_state.guess.remaining_possibles[0];
+
+            state_stack.push(SolverState {
+                guess: Guess {
+                    x: old_state.guess.x,
+                    y: old_state.guess.y,
+                    digit,
+                    remaining_possibles: old_state
+                        .guess
+                        .remaining_possibles
+                        .into_iter()
+                        .filter(|x| *x != digit)
+                        .collect(),
+                },
+                grid: self.grid.clone(),
+                cells_to_eliminate: self.cells_to_eliminate.clone(),
+                solved_cells: solved_cells.clone(),
+            });
+            self.grid.invalidate();
+            break;
+        }
+    }
+
+    fn eliminate_all(
+        &mut self,
+        mut solved_cells: Bitmap<81>,
+    ) -> Result<Bitmap<81>, EliminationError> {
+        while let Some((x, y)) = self.cells_to_eliminate.pop() {
+            assert!(!solved_cells.get((y * 9 + x) as usize));
+            solved_cells.set((y * 9 + x) as usize, true);
+
+            let cells_to_eliminate_ref = &mut self.cells_to_eliminate;
+            let mut push_cell = |pos| {
+                if !cells_to_eliminate_ref.contains(&pos)
+                    && !solved_cells.get((&pos.1 * 9 + &pos.0) as usize)
+                {
+                    cells_to_eliminate_ref.push(pos);
+                }
+            };
+
+            assert!(self.grid.cell(x, y).num_possibles() == 1);
+            let digit = self.grid.cell(x, y).first_possible().unwrap();
+            self.grid.eliminate(x, y, digit, &mut push_cell)?;
+        }
+        Ok(solved_cells)
     }
 
     fn find_guess(&self) -> Guess {
