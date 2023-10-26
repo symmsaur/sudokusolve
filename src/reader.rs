@@ -49,13 +49,18 @@ pub fn read(filename: &str, solver: &mut dyn Solver, offset: usize) -> std::io::
     let mut file = File::open(filename)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    if let Some(first) = contents.lines().skip(offset).next() {
-        for (i, c) in first.chars().enumerate() {
-            if let Some(digit) = c.to_digit(10) {
-                let x = (i % 9) as i32;
-                let y = (i / 9) as i32;
-                solver.set_hint(x, y, digit as i32);
+    match contents.lines().skip(offset).next() {
+        Some(first) => {
+            for (i, c) in first.chars().enumerate() {
+                if let Some(digit) = c.to_digit(10) {
+                    let x = (i % 9) as i32;
+                    let y = (i / 9) as i32;
+                    solver.set_hint(x, y, digit as i32);
+                }
             }
+        }
+        None => {
+            return Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof));
         }
     }
     Ok(())

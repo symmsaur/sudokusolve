@@ -38,7 +38,8 @@ fn main() {
                 solver.solve();
             }
             Err(msg) => {
-                println!("Failed to read file ({})", msg);
+                println!("Case {}: Failed to read file ({})", i, msg);
+                break;
             }
         }
     }
