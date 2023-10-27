@@ -14,6 +14,7 @@ pub trait Grid: Clone + std::fmt::Debug {
         mark_solved: &mut F,
     ) -> Result<(), EliminationError>;
     fn invalidate(&self);
+    fn dump_solution(&self) -> Option<Vec<i32>>;
 }
 
 #[derive(Clone, Debug)]
@@ -146,6 +147,15 @@ impl<TObserver: GridObserver> Grid for ObserveableGrid<TObserver> {
             }
         }
     }
+
+    fn dump_solution(&self) -> Option<Vec<i32>> {
+        let maybe_solution: Vec<Option<i32>> = self.cells.iter().map(|c| c.solution()).collect();
+        if maybe_solution.iter().all(|i| i.is_some()) {
+            Some(maybe_solution.iter().map(|i| i.unwrap()).collect())
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -158,7 +168,7 @@ pub struct Guess {
 
 pub trait Solver {
     fn set_hint(&mut self, x: i32, y: i32, hint: i32);
-    fn solve(&mut self);
+    fn solve(&mut self) -> Option<Vec<i32>>;
 }
 
 pub struct SudokuSolver<TGrid: Grid, TObserver: SolverObserver> {
@@ -183,7 +193,7 @@ impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObs
         }
     }
 
-    fn solve(&mut self) {
+    fn solve(&mut self) -> Option<Vec<i32>> {
         let mut solved_cells = Bitmap::<81>::new();
         let mut state_stack: Vec<SolverState<TGrid>> = Vec::new();
 
@@ -215,6 +225,7 @@ impl<TGrid: Grid, TObserver: SolverObserver> Solver for SudokuSolver<TGrid, TObs
                 .collect::<Vec<Guess>>();
             self.observer.display_guesses(&vec);
         }
+        self.grid.dump_solution()
     }
 }
 

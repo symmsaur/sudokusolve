@@ -37,6 +37,14 @@ impl Cell {
         self.possibles.first_index().map(|i| (i + 1) as i32)
     }
 
+    pub fn solution(&self) -> Option<i32> {
+        if self.possibles.len() == 1 {
+            self.first_possible()
+        } else {
+            None
+        }
+    }
+
     pub fn possibles_except(&self, except: i32) -> Vec<i32> {
         self.possibles
             .into_iter()
